@@ -3,18 +3,14 @@ import numpy as np
 
 cap = cv2.VideoCapture("bucket.mp4")
 
-# -----------------------------
-# Temporal smoothing variables
-# -----------------------------
+
 prev_cx, prev_cy = None, None
 last_good_ellipse = None
 
-ALPHA = 0.7        # smoothing factor
-MAX_JUMP = 40      # reject sudden jumps
+ALPHA = 0.7        
+MAX_JUMP = 40      
 
-# -----------------------------
-# Main loop
-# -----------------------------
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -23,9 +19,7 @@ while True:
     h, w = frame.shape[:2]
     img_cx, img_cy = w // 2, h // 2
 
-    # -----------------------------
-    # Segmentation
-    # -----------------------------
+    
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     _, thresh = cv2.threshold(
@@ -42,9 +36,7 @@ while True:
     MIN_AREA = 2000
     MAX_AREA = 0.9 * h * w
 
-    # -----------------------------
-    # Find best ellipse
-    # -----------------------------
+  
     for cnt in contours:
         if len(cnt) < 20:
             continue
@@ -60,7 +52,7 @@ while True:
 
         (cx, cy), (A, B), angle = ellipse
 
-        # --- Simple, safe eccentricity check
+     
         a = max(A, B) / 2
         b = min(A, B) / 2
         eccentricity = np.sqrt(1 - (b * b) / (a * a))
@@ -73,21 +65,16 @@ while True:
             max_area = area
             best_ellipse = ellipse
 
-    # -----------------------------
-    # Freeze if nothing valid
-    # -----------------------------
     if best_ellipse is not None:
         last_good_ellipse = best_ellipse
     else:
         best_ellipse = last_good_ellipse
 
-    # -----------------------------
-    # Smooth center + output
-    # -----------------------------
+
     if best_ellipse is not None:
         (cx, cy), (A, B), angle = best_ellipse
 
-        # --- Temporal smoothing
+        
         if prev_cx is None:
             smooth_cx, smooth_cy = cx, cy
         else:
@@ -103,10 +90,8 @@ while True:
         dx = cx - img_cx
         dy = cy - img_cy
 
-        # -----------------------------
-        # Ellipse shrink (SAFE ADDITION)
-        # -----------------------------
-        SCALE = 0.9   # try 0.85–0.95
+      
+        SCALE = 0.9   
 
         scaled_ellipse = (
             (cx, cy),
@@ -114,9 +99,7 @@ while True:
             angle
         )
 
-        # -----------------------------
-        # Visualization
-        # -----------------------------
+        
         cv2.ellipse(frame, scaled_ellipse, (0, 255, 0), 2)
         cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)
         cv2.circle(frame, (img_cx, img_cy), 5, (255, 0, 0), -1)
