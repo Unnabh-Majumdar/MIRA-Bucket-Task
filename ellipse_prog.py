@@ -8,8 +8,8 @@ from geometry_msgs.msg import PoseStamped
 from scipy.spatial.transform import Rotation as R
 
 
-VIDEO_PATH = "ellipsoid_bucket.mp4"
-cap = cv2.VideoCapture(VIDEO_PATH)
+#VIDEO_PATH = "ellipsoid_bucket.mp4"
+cap = cv2.VideoCapture(0)
 
 if not cap.isOpened():
     exit(1)
@@ -54,10 +54,13 @@ class BucketPosePublisher(Node):
 
         self.publisher_ = self.create_publisher(
             PoseStamped,
-            'ellipsoid_path',
+            'ellipsoid_pose',
             10
         )
 
+#rena added
+rclpy.init()
+node = BucketPosePublisher()
 
 
 while True:
@@ -171,7 +174,35 @@ while True:
 
         if success:
             tx, ty, tz = tvec.flatten()
-            print(f"tvec: tx={tx:.2f}, ty={ty:.2f}, tz={tz:.2f}")
+            #print(f"tvec: tx={tx:.2f}, ty={ty:.2f}, tz={tz:.2f}")
+            #rena
+            node.get_logger().info(
+                f"Publishing pose: x={tx:.2f}, y={ty:.2f}, z={tz:.2f}"
+            )
+            #rena added
+            rot_matrix, _ = cv2.Rodrigues(rvec)
+            r = R.from_matrix(rot_matrix)
+            quat = r.as_quat()
+
+            pose_msg = PoseStamped()
+
+            pose_msg.header.stamp = node.get_clock().now().to_msg()
+            pose_msg.header.frame_id = "camera_link"
+
+            pose_msg.pose.position.x = float(tx)
+            pose_msg.pose.position.y = float(ty)
+            pose_msg.pose.position.z = float(tz)
+
+            pose_msg.pose.orientation.x = float(quat[0])
+            pose_msg.pose.orientation.y = float(quat[1])
+            pose_msg.pose.orientation.z = float(quat[2])
+            pose_msg.pose.orientation.w = float(quat[3])
+
+            node.publisher_.publish(pose_msg)
+
+
+    #rena added
+    rclpy.spin_once(node, timeout_sec=0.0)
 
     cv2.imshow("Bucket solvePnP", frame)
     if cv2.waitKey(30) & 0xFF == 27:
@@ -180,5 +211,6 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 
-  
-      
+#rena added
+node.destroy_node()
+rclpy.shutdown()
