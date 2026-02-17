@@ -127,6 +127,8 @@ class BucketControls(Node):
             cmd.lateral = self.apply_pid(err_x, self.kp_sway)
             cmd.forward = self.apply_pid(err_y, self.kp_surge)
 
+            self.log_motion(cmd)
+
             cmd.thrust = 1500
 
             if abs(err_x) < 0.1 and abs(err_y) < 0.1:
@@ -178,7 +180,22 @@ class BucketControls(Node):
 
         self.cmd_pub.publish(cmd)
 
-    # ---------------- Helpers ----------------
+    #Helpers
+
+    def log_motion(self, cmd):
+        if cmd.lateral > 1500:
+            self.get_logger().info("Sway RIGHT", throttle_duration_sec=0.5)
+        elif cmd.lateral < 1500:
+            self.get_logger().info("Sway LEFT", throttle_duration_sec=0.5)
+
+        if cmd.forward > 1500:
+            self.get_logger().info("Surge FORWARD", throttle_duration_sec=0.5)
+        elif cmd.forward < 1500:
+            self.get_logger().info("Surge BACKWARD", throttle_duration_sec=0.5)
+
+        if cmd.thrust > 1500:
+            self.get_logger().info("Heave UP/DOWN active", throttle_duration_sec=0.5)
+
 
     def apply_pid(self, error, kp):
         output = int(error * kp)

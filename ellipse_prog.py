@@ -9,7 +9,7 @@ from scipy.spatial.transform import Rotation as R
 
 
 #VIDEO_PATH = "ellipsoid_bucket.mp4"
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture()
 
 if not cap.isOpened():
     exit(1)
