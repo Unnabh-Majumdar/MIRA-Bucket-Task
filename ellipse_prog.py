@@ -1,8 +1,14 @@
 import cv2
 import numpy as np
 import math
+#rena added
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped
+from scipy.spatial.transform import Rotation as R
 
-VIDEO_PATH = "blue_orange_bucket.mp4"
+
+VIDEO_PATH = "ellipsoid_bucket.mp4"
 cap = cv2.VideoCapture(VIDEO_PATH)
 
 if not cap.isOpened():
@@ -39,6 +45,20 @@ MIN_AREA_RATIO = 0.01
 MAX_AREA_RATIO = 0.6
 EDGE_MARGIN = 40
 RIM_BAND_RATIO = 0.12
+
+#rena added
+class BucketPosePublisher(Node):
+
+    def __init__(self):
+        super().__init__('bucket_pose_publisher')
+
+        self.publisher_ = self.create_publisher(
+            PoseStamped,
+            'ellipsoid_path',
+            10
+        )
+
+
 
 while True:
     ret, frame = cap.read()
