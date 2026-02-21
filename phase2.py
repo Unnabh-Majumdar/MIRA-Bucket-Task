@@ -16,7 +16,7 @@ class State:
     ALIGN_XY = 1
     APPROACH = 2
     LOCK = 3
-    SEARCH2=4
+    SEARCH2 = 4
 
 
 class BucketControls(Node):
@@ -205,7 +205,8 @@ class BucketControls(Node):
 
             if elapsed > 3.0:
                 self.get_logger().info("Position locked over bucket")
-
+                
+# this is the sideway search for other buckets
         elif self.state == State.SEARCH2:
 
             if self.bucket_visible and self.bucket_blue:
