@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from custom_msgs.msg import Commands, Telemetry
+from std_msgs.msg import String
 import math
 import time
 import numpy as np
@@ -15,6 +16,7 @@ class State:
     ALIGN_XY = 1
     APPROACH = 2
     LOCK = 3
+    SEARCH2=4
 
 
 class BucketControls(Node):
@@ -37,9 +39,14 @@ class BucketControls(Node):
         self.state = State.SEARCH
         self.last_pose_time = 0.0
         self.bucket_visible = False
+        self.bucket_blue = False
         self.target_pose = None
         self.current_heading = 0.0
         self.blind_timer_start = None
+        # 1 oe -1 for direction
+        self.search2_direction = 1
+        self.search2_start = None
+        self.search2_timer = 3.0
 
         # ROS
         self.cmd_pub = self.create_publisher(
@@ -66,6 +73,14 @@ class BucketControls(Node):
             10
         )
 
+        #add one more subscription according to name in perception node for colour of bucket
+        self.create_subscription(
+            String,
+            "bucket_clr",
+            self.buck_callback,
+            10
+        )
+
         #loop
         self.create_timer(0.05, self.control_loop)
 
@@ -83,6 +98,12 @@ class BucketControls(Node):
             'y': msg.pose.position.y,
             'z': msg.pose.position.z,
         }
+
+    def buck_callback(self, msg):
+        if msg.data == "blue":
+            self.bucket_blue = True
+        else:
+            self.bucket_blue = False
 
     # ---------------- Main Loop ----------------
 
@@ -111,9 +132,16 @@ class BucketControls(Node):
                 "Phase 1: Searching...", throttle_duration_sec=1
             )
 
-            if self.bucket_visible:
-                self.get_logger().info("bucket found -> align xy")
+            if self.bucket_visible and self.bucket_blue:
+                self.get_logger().info("blue bucket found -> align xy")
                 self.state = State.ALIGN_XY
+
+            elif self.bucket_visible and not self.bucket_blue:
+                self.get_logger().info("bucket not blue -> starting secondary search")
+                self.search2_start = time.time()
+                self.search2_direction = 1
+                self.state = State.SEARCH2
+
 
         elif self.state == State.ALIGN_XY:
 
@@ -178,6 +206,27 @@ class BucketControls(Node):
             if elapsed > 3.0:
                 self.get_logger().info("Position locked over bucket")
 
+        elif self.state == State.SEARCH2:
+
+            if self.bucket_visible and self.bucket_blue:
+                self.get_logger().info("blue bucket found -> align XY")
+                self.state = State.ALIGN_XY
+                return
+            
+            if self.bucket_visible and not self.bucket_blue:
+                self.get_logger().info("wrong bucket -> secondary search again")
+            
+            sway_pwm = 1500 + (self.search2_direction * 50)
+            cmd.lateral = sway_pwm
+
+            elapsed= time.time() - self.search2_start
+
+            if elapsed > self.search2_timer:
+
+                self.search2_direction = self.search2_direction * -1
+                self.get_logger("reversing direction, no buckets")
+                self.search2_start = time.time()
+            
         self.cmd_pub.publish(cmd)
 
     #Helpers
