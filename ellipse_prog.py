@@ -8,8 +8,9 @@ from geometry_msgs.msg import PoseStamped
 from scipy.spatial.transform import Rotation as R
 
 
-VIDEO_PATH = "ellipsoid_bucket.mp4"
-cap = cv2.VideoCapture(VIDEO_PATH)
+#VIDEO_PATH = "ellipsoid_bucket.mp4" 
+# add camera number in VideoCapture()
+cap = cv2.VideoCapture()
 
 if not cap.isOpened():
     exit(1)

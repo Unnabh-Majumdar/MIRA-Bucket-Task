@@ -219,13 +219,14 @@ class BucketControls(Node):
             
             sway_pwm = 1500 + (self.search2_direction * 50)
             cmd.lateral = sway_pwm
+            cmd.yaw = 1500 #just in case to keep it neutral
 
             elapsed= time.time() - self.search2_start
 
             if elapsed > self.search2_timer:
 
                 self.search2_direction = self.search2_direction * -1
-                self.get_logger("reversing direction, no buckets")
+                self.get_logger().info("reversing direction, no buckets")
                 self.search2_start = time.time()
             
         self.cmd_pub.publish(cmd)

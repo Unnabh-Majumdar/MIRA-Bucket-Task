@@ -1,7 +1,15 @@
 import cv2
 import numpy as np
 import math
+#ros
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
+from scipy.spatial.transform import Rotation as R
+import time
 
+#change video path to camera
 cap = cv2.VideoCapture("blue_orange_bucket.mp4")
 
 if not cap.isOpened():
@@ -13,24 +21,42 @@ cv2.namedWindow("Mask")
 
 # ---------------- CAMERA CALIBRATION ----------------
 camera_matrix = np.array([
-    [620.31496735, 0, 325.04442149],
-    [0, 616.05767137, 247.22452100],
-    [0, 0, 1]
+ [1.33663561e+03,0.00000000e+00, 6.92881477e+02],
+ [0.00000000e+00,1.33913474e+03, 3.56580140e+02],
+ [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]
 ], dtype=np.float32)
 
 dist_coeffs = np.array([
-    [-0.43458364, 0.25736404, -0.00494952, 0.00179857, -0.28597311]
+    [-0.46938636 , 0.44715133 ,-0.00117623 , 0.00088666 ,-0.38332216]
 ], dtype=np.float32)
 
 # ---------------- BUCKET GEOMETRY ----------------
-R = 0.235
+Radius = 0.235
 
 object_points = np.array([
-    (0, -R, 0),
-    (R, 0, 0),
-    (0, R, 0),
-    (-R, 0, 0)
+    (0, -Radius, 0),
+    (Radius, 0, 0),
+    (0, Radius, 0),
+    (-Radius, 0, 0)
 ], dtype=np.float32)
+
+#ros
+class BucketPerception(Node):
+
+    def __init__(self):
+        super().__init__("bucket_perception")
+
+        self.pose_pub = self.create_publisher(
+            PoseStamped,
+            "ellipsoid_pose",
+            10
+        )
+
+        self.color_pub = self.create_publisher(
+            String,
+            "bucket_clr",
+            10
+        )
 
 def get_ellipse_rim_points(cx, cy, A, B, angle_deg):
     angle = np.deg2rad(angle_deg)
@@ -55,6 +81,10 @@ def get_ellipse_rim_points(cx, cy, A, B, angle_deg):
 MIN_AREA_RATIO = 0.01
 MAX_AREA_RATIO = 0.85
 EDGE_MARGIN = 40
+
+#ros
+rclpy.init()
+node = BucketPerception()
 
 while True:
     ret, frame = cap.read()
@@ -153,6 +183,33 @@ while True:
                         1,
                         (0, 255, 0),
                         2)
+            
+            # ros
+            # convert to quaternion
+            rot_matrix, _ = cv2.Rodrigues(rvec)
+            quat = R.from_matrix(rot_matrix).as_quat()
+
+            pose_msg = PoseStamped()
+            pose_msg.header.stamp = node.get_clock().now().to_msg()
+            pose_msg.header.frame_id = "camera_link"
+
+            pose_msg.pose.position.x = float(tx)
+            pose_msg.pose.position.y = float(ty)
+            pose_msg.pose.position.z = float(tz)
+
+            pose_msg.pose.orientation.x = float(quat[0])
+            pose_msg.pose.orientation.y = float(quat[1])
+            pose_msg.pose.orientation.z = float(quat[2])
+            pose_msg.pose.orientation.w = float(quat[3])
+
+            node.pose_pub.publish(pose_msg)
+
+            # publish bucket colour
+            color_msg = String()
+            color_msg.data = "blue" if detected_color == "Blue Bucket" else "orange"
+            node.color_pub.publish(color_msg)
+            # end of ros
+
 
         if detected_color:
             cv2.putText(frame,
@@ -162,6 +219,8 @@ while True:
                         1,
                         (0, 255, 0),
                         2)
+    # ros
+    rclpy.spin_once(node, timeout_sec=0.0)
 
     cv2.imshow("Frame", frame)
 
@@ -170,3 +229,6 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+# ros
+node.destroy_node()
+rclpy.shutdown()
