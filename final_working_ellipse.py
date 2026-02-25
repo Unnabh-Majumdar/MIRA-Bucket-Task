@@ -1,10 +1,16 @@
 import cv2
 import numpy as np
 import math
+#ros
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
+from scipy.spatial.transform import Rotation as R
+import time
 
 #VIDEO SOURCE
-
-cap = cv2.VideoCapture("output.mp4")
+cap = cv2.VideoCapture("ellipsoid_bucket.mp4")
 
 if not cap.isOpened():
     print("Cannot open video")
@@ -63,6 +69,24 @@ object_points = np.array([
     (-Radius, 0, 0)
 ], dtype=np.float32)
 
+#ros
+class BucketPerception(Node):
+
+    def __init__(self):
+        super().__init__("bucket_perception")
+
+        self.pose_pub = self.create_publisher(
+            PoseStamped,
+            "ellipsoid_pose",
+            10
+        )
+
+        self.color_pub = self.create_publisher(
+            String,
+            "bucket_clr",
+            10
+        )
+
 # HELPER FUNCTION
 def get_ellipse_rim_points(cx, cy, A, B, angle_deg):
     angle = np.deg2rad(angle_deg)
@@ -86,6 +110,9 @@ def get_ellipse_rim_points(cx, cy, A, B, angle_deg):
 
 wb = cv2.xphoto.createGrayworldWB()
 
+#ros
+rclpy.init()
+node = BucketPerception()
 
 #MAIN LOOP
 while True:
@@ -191,6 +218,32 @@ while True:
                         1,
                         (0, 255, 0),
                         2)
+            
+             # ros
+            # convert to quaternion
+            rot_matrix, _ = cv2.Rodrigues(rvec)
+            quat = R.from_matrix(rot_matrix).as_quat()
+
+            pose_msg = PoseStamped()
+            pose_msg.header.stamp = node.get_clock().now().to_msg()
+            pose_msg.header.frame_id = "camera_link"
+
+            pose_msg.pose.position.x = float(tx)
+            pose_msg.pose.position.y = float(ty)
+            pose_msg.pose.position.z = float(tz)
+
+            pose_msg.pose.orientation.x = float(quat[0])
+            pose_msg.pose.orientation.y = float(quat[1])
+            pose_msg.pose.orientation.z = float(quat[2])
+            pose_msg.pose.orientation.w = float(quat[3])
+
+            node.pose_pub.publish(pose_msg)
+
+            # publish bucket colour
+            color_msg = String()
+            color_msg.data = "blue" if detected_color == "Blue Bucket" else "orange"
+            node.color_pub.publish(color_msg)
+            # end of ros
 
         if detected_color:
             cv2.putText(frame,
@@ -200,6 +253,8 @@ while True:
                         1,
                         (0, 255, 0),
                         2)
+        # ros
+        rclpy.spin_once(node, timeout_sec=0.0)
 
     cv2.imshow("Frame", frame)
 
